@@ -143,3 +143,5 @@ MongoClient.connect(
       console.log(error); // => 'EFATAL'
     });
   });
+
+module.exports = bot;
