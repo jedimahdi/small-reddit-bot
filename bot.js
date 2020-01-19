@@ -4,6 +4,7 @@ const { MongoClient } = require("mongodb");
 const TOKEN = "901615631:AAHaYfEWc99ENwYol2LHJQYhgaFwqJIc_o0";
 const MY_CHANNEL = "@SmallReddit";
 const bot = new TelegramBot(TOKEN, { polling: true });
+bot.setWebHook(process.env.HEROKU_URL + bot.token);
 
 MongoClient.connect(
   "mongodb://test:123456a@ds211259.mlab.com:11259/small-reddit",
