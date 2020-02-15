@@ -84,7 +84,6 @@ MongoClient.connect(process.env.MONGO_URL, {
     }
 
     bot.on('channel_post', msg => {
-      console.log(msg)
       render_vote(msg.message_id)
     })
 
