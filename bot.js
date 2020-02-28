@@ -1,10 +1,10 @@
 const TelegramBot = require('node-telegram-bot-api')
 
-const MY_CHANNEL = process.env.TELEGRAM_CHANNEL
+const MY_CHANNEL = '@' + process.env.TELEGRAM_CHANNEL
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, {polling: true})
 
 module.exports = client => {
-  let votes = client.db('small-reddit').collection('votes')
+  let votes = client.db('small-reddit2').collection('votes')
 
   async function render_vote(message_id) {
     const messages_vote = await votes.findOne({message_id: message_id})
@@ -31,7 +31,7 @@ module.exports = client => {
     )
   }
 
-  async function vote(isUp, message_id, user_id) {
+  async function vote(isUp, message_id, user_id, date, username) {
     const messages_vote = await votes.findOne({message_id: message_id})
 
     if (messages_vote) {
@@ -51,7 +51,10 @@ module.exports = client => {
 
         await votes.updateOne({message_id: message_id}, {$set: new_vote})
       } else {
-        let users = [...messages_vote.users, {id: user_id, isUp: isUp}]
+        let users = [
+          ...messages_vote.users,
+          {id: user_id, isUp: isUp, username: username},
+        ]
         await votes.updateOne(
           {message_id: message_id},
           {
@@ -67,11 +70,36 @@ module.exports = client => {
         message_id: message_id,
         users: [{id: user_id, isUp: isUp}],
         count: isUp ? 1 : -1,
+        date: date,
       })
     }
 
     return true
   }
+
+  bot.on('message', async msg => {
+    if (msg.text && msg.text === 'meme') {
+      const now = Math.round(new Date().getTime() / 1000)
+
+      const cursor = await votes.aggregate([
+        {$addFields: {diff_date: {$subtract: [now, '$date']}}},
+        {$match: {diff_date: {$lt: 60 * 60 * 24}}},
+        {$sort: {count: -1}},
+        {$limit: 2},
+      ])
+      const messages = await cursor.toArray()
+
+      messages.forEach(message => {
+        bot.sendMessage(
+          '@' + process.env.TELEGRAM_CHANNEL2,
+          `https://t.me/${process.env.TELEGRAM_CHANNEL}/${message.message_id}`,
+        )
+      })
+
+      console.log(now - msg.date)
+      console.log(msg)
+    }
+  })
 
   bot.on('photo', data => {
     if (
@@ -91,13 +119,30 @@ module.exports = client => {
   })
 
   bot.on('callback_query', async function(data) {
+    console.log(data)
     if (data.data === '+') {
-      if (await vote(true, data.message.message_id, data.from.id)) {
+      if (
+        await vote(
+          true,
+          data.message.message_id,
+          data.from.id,
+          data.message.date,
+          data.from.username,
+        )
+      ) {
         await render_vote(data.message.message_id)
       }
     }
     if (data.data === '-') {
-      if (await vote(false, data.message.message_id, data.from.id)) {
+      if (
+        await vote(
+          false,
+          data.message.message_id,
+          data.from.id,
+          data.message.date,
+          data.from.username,
+        )
+      ) {
         await render_vote(data.message.message_id)
       }
     }
